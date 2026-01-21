@@ -5,6 +5,9 @@ const db = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const binRoutes = require("./routes/binRoutes");
 const sensorRoutes = require("./routes/sensorRoutes");
+const alertRoutes = require("./routes/alertRoutes");
+const collectionRoutes = require("./routes/collectionRoutes");
+
 
 const app = express();
 
@@ -13,6 +16,9 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/bins", binRoutes);
 app.use("/api/sensor", sensorRoutes);
+app.use("/api/alerts", alertRoutes);
+app.use("/api/collections", collectionRoutes);
+
 
 
 app.get("/", (req, res) => {
