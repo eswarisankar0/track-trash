@@ -1,20 +1,26 @@
-exports.isAdmin = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin access only" });
-  }
-  next();
+// Generic role checker function
+const checkRole = (requiredRole) => {
+  return (req, res, next) => {
+    // If token not verified or user missing
+    if (!req.user) {
+      return res.status(401).json({
+        message: "Unauthorized. Token missing or invalid."
+      });
+    }
+
+    // If role does not match
+    if (req.user.role !== requiredRole) {
+      return res.status(403).json({
+        message: `${requiredRole} access only`
+      });
+    }
+
+    // Role valid → continue
+    next();
+  };
 };
 
-exports.isCollector = (req, res, next) => {
-  if (req.user.role !== "collector") {
-    return res.status(403).json({ message: "Collector access only" });
-  }
-  next();
-};
-
-exports.isUser = (req, res, next) => {
-  if (req.user.role !== "user") {
-    return res.status(403).json({ message: "User access only" });
-  }
-  next();
-};
+// Export specific role middlewares
+exports.isAdmin = checkRole("admin");
+exports.isCollector = checkRole("collector");
+exports.isUser = checkRole("user");

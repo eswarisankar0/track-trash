@@ -7,6 +7,9 @@ const binRoutes = require("./routes/binRoutes");
 const sensorRoutes = require("./routes/sensorRoutes");
 const alertRoutes = require("./routes/alertRoutes");
 const collectionRoutes = require("./routes/collectionRoutes");
+const issueRoutes = require("./routes/issueRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 
 const app = express();
@@ -18,7 +21,9 @@ app.use("/api/bins", binRoutes);
 app.use("/api/sensor", sensorRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use("/api/collections", collectionRoutes);
-
+app.use("/api/issues", issueRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 
 app.get("/", (req, res) => {

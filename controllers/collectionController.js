@@ -1,62 +1,117 @@
 const db = require("../config/db");
+const { createNotification } = require("../utils/notificationService");
 
+
+// =====================================
 // Assign bin to collector (ADMIN)
+// =====================================
 exports.assignBin = (req, res) => {
   const { bin_id, collector_id } = req.body;
 
   if (!bin_id || !collector_id) {
-    return res.status(400).json({ 
-      message: "bin_id and collector_id required" 
+    return res.status(400).json({
+      message: "bin_id and collector_id required"
     });
   }
 
-  // Validate collector from users table
+  // 1️⃣ Check if bin exists
   db.query(
-    "SELECT id FROM users WHERE id = ? AND role = 'collector'",
-    [collector_id],
-    (err, users) => {
-      if (err) {
-        console.error("Collector validation error:", err);
-        return res.status(500).json({ error: err.message });
+    "SELECT id FROM bins WHERE id = ?",
+    [bin_id],
+    (errBin, binRows) => {
+      if (errBin) return res.status(500).json(errBin);
+
+      if (binRows.length === 0) {
+        return res.status(404).json({ message: "Bin not found" });
       }
 
-      if (users.length === 0) {
-        return res.status(400).json({
-          message: "Invalid collector. User is not a collector."
-        });
-      }
-
-      // Assign bin
+      // 2️⃣ Validate collector
       db.query(
-        "INSERT INTO collections (bin_id, collector_id, status) VALUES (?, ?, 'pending')",
-        [bin_id, collector_id],
-        (err2) => {
-          if (err2) {
-            console.error("Assignment error:", err2);
-            return res.status(500).json({ error: err2.message });
+        "SELECT id FROM users WHERE id = ? AND role = 'collector'",
+        [collector_id],
+        (errUser, users) => {
+          if (errUser) {
+            console.error("Collector validation error:", errUser);
+            return res.status(500).json({ error: errUser.message });
           }
 
-          res.json({ message: "Bin assigned to collector" });
+          if (users.length === 0) {
+            return res.status(400).json({
+              message: "Invalid collector. User is not a collector."
+            });
+          }
+
+          // 3️⃣ Prevent duplicate pending assignment
+          db.query(
+            `SELECT id FROM collections
+             WHERE bin_id = ? AND status = 'pending'`,
+            [bin_id],
+            (errCheck, existing) => {
+              if (errCheck) return res.status(500).json(errCheck);
+
+              if (existing.length > 0) {
+                return res.status(400).json({
+                  message: "This bin is already assigned and pending."
+                });
+              }
+
+              // 4️⃣ Insert assignment
+              db.query(
+                `INSERT INTO collections (bin_id, collector_id, status)
+                 VALUES (?, ?, 'pending')`,
+                [bin_id, collector_id],
+                (errInsert) => {
+                  if (errInsert) {
+                    console.error("Assignment error:", errInsert);
+                    return res.status(500).json({ error: errInsert.message });
+                  }
+
+                  // 🔔 Notify collector
+                  createNotification(
+                    collector_id,
+                    "New Collection Assigned",
+                    `You have been assigned Bin #${bin_id}`,
+                    "COLLECTION"
+                  );
+
+                  res.json({
+                    message: "Bin assigned to collector successfully"
+                  });
+                }
+              );
+            }
+          );
         }
       );
     }
   );
 };
 
+
+// =====================================
 // View all collections (ADMIN)
+// =====================================
 exports.getAllCollections = (req, res) => {
-  db.query("SELECT * FROM collections ORDER BY id DESC", (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
+  db.query(
+    "SELECT * FROM collections ORDER BY id DESC",
+    (err, results) => {
+      if (err) return res.status(500).json(err);
+      res.json(results);
+    }
+  );
 };
 
-// View my collections (COLLECTOR - from token)
+
+// =====================================
+// View my collections (COLLECTOR)
+// =====================================
 exports.getMyCollections = (req, res) => {
-  const collectorId = req.user.id; // from JWT
+  const collectorId = req.user.id;
 
   db.query(
-    "SELECT * FROM collections WHERE collector_id = ? AND status = 'pending'",
+    `SELECT * FROM collections
+     WHERE collector_id = ? AND status = 'pending'
+     ORDER BY id DESC`,
     [collectorId],
     (err, results) => {
       if (err) return res.status(500).json(err);
@@ -65,35 +120,53 @@ exports.getMyCollections = (req, res) => {
   );
 };
 
-// Mark collection complete
+
+// =====================================
+// Complete collection (COLLECTOR)
+// =====================================
 exports.completeCollection = (req, res) => {
   const { id } = req.params;
 
-  // 1. Get bin_id first
+  // 1️⃣ Get bin_id
   db.query(
     "SELECT bin_id FROM collections WHERE id = ?",
     [id],
-    (err, rows) => {
-      if (err) return res.status(500).json(err);
+    (errFetch, rows) => {
+      if (errFetch) return res.status(500).json(errFetch);
+
       if (rows.length === 0) {
-        return res.status(404).json({ message: "Collection not found" });
+        return res.status(404).json({
+          message: "Collection not found"
+        });
       }
 
       const bin_id = rows[0].bin_id;
 
-      // 2. Mark collection as collected
+      // 2️⃣ Mark collection as collected
       db.query(
-        "UPDATE collections SET status='collected', collected_at=NOW() WHERE id=?",
+        `UPDATE collections
+         SET status='collected', collected_at=NOW()
+         WHERE id=?`,
         [id],
-        (err2) => {
-          if (err2) return res.status(500).json(err2);
+        (errUpdate) => {
+          if (errUpdate) return res.status(500).json(errUpdate);
 
-          // 3. Reset bin
+          // 3️⃣ Reset bin
           db.query(
-            "UPDATE bins SET current_fill=0, status='empty' WHERE id=?",
+            `UPDATE bins
+             SET current_fill=0, status='empty'
+             WHERE id=?`,
             [bin_id],
-            (err3) => {
-              if (err3) return res.status(500).json(err3);
+            (errReset) => {
+              if (errReset) return res.status(500).json(errReset);
+
+              // 4️⃣ Auto-resolve overflow alert
+              db.query(
+                `UPDATE alerts
+                 SET status='resolved'
+                 WHERE bin_id=? AND alert_type='OVERFLOW'`,
+                [bin_id]
+              );
 
               res.json({
                 message: "Collection completed and bin reset"
