@@ -131,6 +131,27 @@
   gap: 10px;
 }
 
+.edit-fill-section {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.fill-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--gray);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.fill-input:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+}
+
 .btn-small {
   flex: 1;
   padding: 10px 16px;

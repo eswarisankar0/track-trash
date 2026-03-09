@@ -6,6 +6,8 @@ function Bins() {
   const [bins, setBins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editFill, setEditFill] = useState("");
 
   useEffect(() => {
     fetchBins();
@@ -20,6 +22,20 @@ function Bins() {
       setError("Failed to load bins");
       setLoading(false);
       console.error(err);
+    }
+  };
+
+  const handleUpdateFill = async (id, currentFill) => {
+    try {
+      await api.put(`/bins/${id}`, { current_fill: parseInt(editFill) });
+      setBins(bins.map(b => 
+        b.id === id ? { ...b, current_fill: parseInt(editFill) } : b
+      ));
+      setEditingId(null);
+      setEditFill("");
+    } catch (err) {
+      console.error("Failed to update bin fill", err);
+      setError("Failed to update bin");
     }
   };
 
@@ -98,7 +114,44 @@ function Bins() {
             </div>
 
             <div className="bin-card-footer">
-              <button className="btn-small btn-primary">Update Fill</button>
+              {editingId === bin.id ? (
+                <div className="edit-fill-section">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editFill}
+                    onChange={(e) => setEditFill(e.target.value)}
+                    placeholder="Enter fill %"
+                    className="fill-input"
+                  />
+                  <button
+                    className="btn-small btn-primary"
+                    onClick={() => handleUpdateFill(bin.id, bin.current_fill)}
+                  >
+                    Save
+                  </button>
+                  <button
+                    className="btn-small btn-secondary"
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditFill("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="btn-small btn-primary"
+                  onClick={() => {
+                    setEditingId(bin.id);
+                    setEditFill(bin.current_fill || "0");
+                  }}
+                >
+                  Update Fill
+                </button>
+              )}
             </div>
           </div>
         ))}

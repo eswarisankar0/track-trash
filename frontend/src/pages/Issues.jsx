@@ -4,18 +4,20 @@ import "./Issues.css";
 
 function Issues() {
   const [issues, setIssues] = useState([]);
+  const [bins, setBins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState("user");
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
-    title: "",
+    issue_type: "",
     description: "",
-    binId: ""
+    bin_id: ""
   });
 
   useEffect(() => {
     fetchIssues();
+    fetchBins();
     const role = localStorage.getItem("userRole") || "user";
     setUserRole(role);
   }, []);
@@ -40,15 +42,39 @@ function Issues() {
     }
   };
 
+  const fetchBins = async () => {
+    try {
+      const res = await api.get("/bins");
+      setBins(res.data || []);
+    } catch (err) {
+      console.error("Failed to load bins", err);
+      setBins([]);
+    }
+  };
+
   const handleSubmitIssue = async (e) => {
     e.preventDefault();
+    setError("");
+    
+    if (!formData.bin_id) {
+      setError("Bin ID is required");
+      return;
+    }
+
     try {
-      await api.post("/issues", formData);
-      setFormData({ title: "", description: "", binId: "" });
+      const payload = {
+        bin_id: parseInt(formData.bin_id),
+        issue_type: formData.issue_type,
+        description: formData.description
+      };
+      
+      await api.post("/issues", payload);
+      setFormData({ issue_type: "", description: "", bin_id: "" });
       setShowForm(false);
       fetchIssues();
     } catch (err) {
       console.error("Failed to create issue", err);
+      setError(err.response?.data?.message || "Failed to create issue");
     }
   };
 
@@ -93,15 +119,22 @@ function Issues() {
             </button>
           ) : (
             <form className="issue-form" onSubmit={handleSubmitIssue}>
+              {error && <div className="error-message">{error}</div>}
+              
               <div className="form-group">
-                <label>Issue Title</label>
-                <input
-                  type="text"
-                  placeholder="e.g., Bin overflowing"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                <label>Issue Type</label>
+                <select
+                  value={formData.issue_type}
+                  onChange={(e) => setFormData({ ...formData, issue_type: e.target.value })}
                   required
-                />
+                >
+                  <option value="">Select issue type</option>
+                  <option value="mechanical">Mechanical Problem</option>
+                  <option value="overflow">Overflow</option>
+                  <option value="damage">Damage</option>
+                  <option value="malfunction">Malfunction</option>
+                  <option value="other">Other</option>
+                </select>
               </div>
               <div className="form-group">
                 <label>Description</label>
@@ -114,20 +147,33 @@ function Issues() {
                 />
               </div>
               <div className="form-group">
-                <label>Bin ID (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g., BIN001"
-                  value={formData.binId}
-                  onChange={(e) => setFormData({ ...formData, binId: e.target.value })}
-                />
+                <label>Bin ID *</label>
+                <select
+                  value={formData.bin_id}
+                  onChange={(e) => setFormData({ ...formData, bin_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select a bin</option>
+                  {bins.length > 0 ? (
+                    bins.map((bin) => (
+                      <option key={bin.id} value={bin.id}>
+                        Bin #{bin.id} - {bin.location || "No location"}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No bins available</option>
+                  )}
+                </select>
               </div>
               <div className="form-actions">
                 <button type="submit" className="btn btn-primary">Submit Issue</button>
                 <button 
                   type="button" 
                   className="btn btn-secondary" 
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setError("");
+                  }}
                 >
                   Cancel
                 </button>
