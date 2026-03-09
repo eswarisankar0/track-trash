@@ -1,23 +1,86 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../services/api";
+import "./Dashboard.css";
 
 function Dashboard() {
-  const [bins, setBins] = useState({});
+  const [stats, setStats] = useState({
+    total: 0,
+    full: 0,
+    active: 0,
+    empty: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/analytics/bins")
-      .then(res => setBins(res.data))
-      .catch(err => console.log(err));
+    fetchStats();
   }, []);
 
-  return (
-    <div>
-      <h2>Admin Dashboard</h2>
+  const fetchStats = async () => {
+    try {
+      const res = await api.get("/analytics/bins");
+      setStats(res.data);
+      setLoading(false);
+    } catch (err) {
+      setError("Failed to load dashboard stats");
+      setLoading(false);
+      console.error(err);
+    }
+  };
 
-      <p>Total Bins: {bins.total}</p>
-      <p>Full Bins: {bins.full}</p>
-      <p>Active Bins: {bins.active}</p>
-      <p>Empty Bins: {bins.empty}</p>
+  if (loading) return <div className="dashboard-container"><p>Loading...</p></div>;
+  if (error) return <div className="dashboard-container"><p className="error">{error}</p></div>;
+
+  return (
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h1>📊 Dashboard</h1>
+        <p>Smart Waste Management System Overview</p>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card total">
+          <div className="stat-icon">📦</div>
+          <div className="stat-content">
+            <h3>Total Bins</h3>
+            <p className="stat-number">{stats.total || 0}</p>
+          </div>
+        </div>
+
+        <div className="stat-card full">
+          <div className="stat-icon">🔴</div>
+          <div className="stat-content">
+            <h3>Full Bins</h3>
+            <p className="stat-number">{stats.full || 0}</p>
+          </div>
+        </div>
+
+        <div className="stat-card active">
+          <div className="stat-icon">✅</div>
+          <div className="stat-content">
+            <h3>Active Bins</h3>
+            <p className="stat-number">{stats.active || 0}</p>
+          </div>
+        </div>
+
+        <div className="stat-card empty">
+          <div className="stat-icon">⚪</div>
+          <div className="stat-content">
+            <h3>Empty Bins</h3>
+            <p className="stat-number">{stats.empty || 0}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="welcome-section">
+        <h2>Welcome to Track Trash</h2>
+        <p>Manage your smart waste bins efficiently. Monitor fill levels, track collections, and stay updated with alerts.</p>
+        <div className="quick-links">
+          <a href="/bins" className="btn btn-primary">View Bins</a>
+          <a href="/collections" className="btn btn-secondary">View Collections</a>
+          <a href="/notifications" className="btn btn-secondary">Notifications</a>
+        </div>
+      </div>
     </div>
   );
 }
