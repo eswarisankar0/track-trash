@@ -10,20 +10,19 @@ try {
 }
 
 const LANG_MAP = {
-  ta: "ta-IN",
-  hi: "hi-IN",
-  en: "en-US",
+  ta: "ta",
+  hi: "hi",
+  en: "en",
 };
 
 // ── Call MyMemory API ─────────────────────────────────────
 function myMemoryTranslate(text, target) {
   return new Promise((resolve) => {
-    const langPair = `en|${LANG_MAP[target] || target}`;
     const encoded = encodeURIComponent(text);
-    const path = `/get?q=${encoded}&langpair=${langPair}`;
+    const path = `/translate_a/single?client=gtx&sl=en&tl=${target}&dt=t&q=${encoded}`;
 
     const options = {
-      hostname: "api.mymemory.translated.net",
+      hostname: "translate.googleapis.com",
       path,
       method: "GET",
     };
@@ -34,11 +33,11 @@ function myMemoryTranslate(text, target) {
       res.on("end", () => {
         try {
           const parsed = JSON.parse(data);
-          if (parsed.responseStatus === 200 && parsed.responseData?.translatedText) {
-            resolve(parsed.responseData.translatedText);
-          } else {
-            resolve(text); // fallback to original
-          }
+          // Response is nested arrays: [[["translatedText","original",...],...],...]
+          const translated = parsed[0]
+            .map((segment) => segment[0])
+            .join("");
+          resolve(translated || text);
         } catch {
           resolve(text);
         }
@@ -89,7 +88,9 @@ function storeCache(text, target, translated) {
 
 // ── Main controller ───────────────────────────────────────
 exports.translate = async (req, res) => {
-  const { texts, target } = req.body;
+  console.log("CONTENT-TYPE:", req.headers["content-type"]);
+  console.log("BODY:", req.body);
+  const { texts, target } = req.body || {};
 
   if (!texts || !Array.isArray(texts) || texts.length === 0) {
     return res.status(400).json({ message: "texts array is required" });
