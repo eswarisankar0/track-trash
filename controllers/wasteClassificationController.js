@@ -12,7 +12,7 @@ exports.classifyWaste = async (req, res) => {
         form.append("file", fs.createReadStream(req.file.path));
 
         const response = await axios.post(
-            "http://localhost:5001/predict",
+            "http://localhost:5002/predict",
             form,
             { headers: form.getHeaders() }
         );
